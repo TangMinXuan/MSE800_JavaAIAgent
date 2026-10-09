@@ -109,38 +109,15 @@ public class Main {
                 .modelName("openai/gpt-4o-mini")
                 .build();
 
-        // 1. 构建Retriever
-        EmbeddingStoreContentRetriever retriever = EmbeddingStoreContentRetriever.builder()
-                .embeddingStore(embeddingStore)
-                .embeddingModel(embeddingModel)
-                .maxResults(3)        // TopN
-                .minScore(0.6)        // 相似度阈值
-                .build();
-
-        // 2. 构建RetrievalAugmentor
-        RetrievalAugmentor augmentor = DefaultRetrievalAugmentor.builder()
-                .contentRetriever(retriever)
-                .build();
-
-        // 3. 构建AI Service
-        interface RedisAssistant {
-            @SystemMessage("""
-                    You are a TangFan DB assistant.
-                    Answer ONLY based on the provided context.
-                    If the context does not contain relevant information, 
-                    say "I don't have information about this topic" 
-                    and do NOT make up any answer.
-                    """)
-            String chat(String userMessage);
-        }
-
-        RedisAssistant assistant = AiServices.builder(RedisAssistant.class)
+        TangFanDbTool tool = new TangFanDbTool(embeddingStore, embeddingModel);
+        TangFanAgent agent = AiServices.builder(TangFanAgent.class)
                 .chatModel(chatModel)
-                .retrievalAugmentor(augmentor)
+                .tools(tool)
                 .build();
 
         // 4. 直接问问题
-        String answer = assistant.chat("What is the default port of TangFan DB?");
+//        String answer = agent.chat("What is the default port of TangFan DB?");
+        String answer = agent.chat("What is 1+1?");
         System.out.println(answer);
     }
 }
