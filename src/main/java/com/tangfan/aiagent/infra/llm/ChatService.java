@@ -1,10 +1,9 @@
-package infra.llm;
+package com.tangfan.aiagent.infra.llm;
 
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ChatService {

@@ -1,4 +1,4 @@
-package pipeline.components;
+package com.tangfan.aiagent.pipeline.components;
 
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
