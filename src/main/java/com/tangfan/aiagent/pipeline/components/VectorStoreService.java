@@ -12,7 +12,8 @@ import java.util.List;
 public class VectorStoreService {
     private static final String CHUNK_ID = "chunk_id";
     private static final String SOURCE_FILE = "source_file";
-    private static final String PAGE_NUM = "page_num";
+    private static final String PARENT_ID = "parent_id";
+    private static final String PARENT_CONTENT = "parent_content";
 
     private final ChromaDbClient chromaDbClient;
 
@@ -27,7 +28,8 @@ public class VectorStoreService {
                     Metadata metadata = new Metadata();
                     metadata.put(CHUNK_ID, chunk.id);
                     metadata.put(SOURCE_FILE, chunk.sourceFile);
-                    metadata.put(PAGE_NUM, chunk.pageNumber);
+                    metadata.put(PARENT_ID, chunk.parentId);
+                    metadata.put(PARENT_CONTENT, chunk.parentContent);
                     return TextSegment.from(chunk.content, metadata);
                 })
                 .toList();
@@ -46,15 +48,10 @@ public class VectorStoreService {
                             metadata.getInteger(CHUNK_ID),
                             segment.text(),
                             metadata.getString(SOURCE_FILE),
-                            0,
-                            -1,
-                            null));
+                            metadata.getInteger(PARENT_ID),
+                            metadata.getString(PARENT_CONTENT)));
         }
         return chunks;
-    }
-
-    public List<Chunk> getChunkByParentId(List<Chunk> childChunk) {
-        return List.of();
     }
 
     // 按文档删全部chunks

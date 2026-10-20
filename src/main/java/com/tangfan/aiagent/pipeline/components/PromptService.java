@@ -1,13 +1,17 @@
 package com.tangfan.aiagent.pipeline.components;
 
+import com.tangfan.aiagent.util.StringUtil;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import com.tangfan.aiagent.infra.llm.ChatService;
 import com.tangfan.aiagent.model.Chunk;
+import org.apache.commons.codec.binary.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 // chunks + 历史 + 问题 → 组装Prompt
 public class PromptService {
@@ -23,10 +27,20 @@ public class PromptService {
     }
 
     public String buildRetrievedContext(List<Chunk> retrievedChunks) {
+        record ParentKey(String sourceFile, int parentId) {}
+
         StringBuilder context = new StringBuilder();
+        Set<ParentKey> addedParents = new HashSet<>();
         for (Chunk chunk : retrievedChunks) {
-            context.append("[来源: ").append(chunk.sourceFile).append("]\n")
-                    .append(chunk.content).append("\n\n");
+            if (!StringUtil.isBlank(chunk.parentContent)) {
+                if (addedParents.add(new ParentKey(chunk.sourceFile, chunk.parentId))) {
+                    context.append("[来源: ").append(chunk.sourceFile).append("]\n")
+                            .append(chunk.parentContent).append("\n\n");
+                }
+            } else if (!StringUtil.isBlank(chunk.content)) {
+                context.append("[来源: ").append(chunk.sourceFile).append("]\n")
+                        .append(chunk.content).append("\n\n");
+            }
         }
         if (context.isEmpty()) {
             return "没有检索到相关的 TangFan DB 文档资料。";

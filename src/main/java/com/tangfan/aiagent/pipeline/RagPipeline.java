@@ -89,7 +89,7 @@ public class RagPipeline {
                 .addEdge("build_context", END)
                 .compile();
     }
-    public String retrieveContext(String question, List<TextHistoryMessage> history) {
+    public String toolCalling(String question, List<TextHistoryMessage> history) {
         if (question == null || question.isBlank()) {
             throw new IllegalArgumentException("Question must not be blank");
         }
