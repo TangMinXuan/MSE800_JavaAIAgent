@@ -16,7 +16,12 @@ import java.util.Set;
 // chunks + 历史 + 问题 → 组装Prompt
 public class PromptService {
     public final static String REWRITE_PROMPT_TEMPLATE = """
-            请将以下问题改写为更适合文档检索的形式，只返回改写后的问题：
+            Rewrite the latest user question as a concise, standalone search query for document retrieval.
+                Rules:
+                1. If the subject of the question is uncertain, it is presumed to be TangFan DB
+                2. If the question is already clear and specific, return it unchanged
+                3. Return only the rewritten query, no explanation
+            Return only the rewritten question:
             {originalQuery}
         """;
 
@@ -27,25 +32,17 @@ public class PromptService {
     }
 
     public String buildRetrievedContext(List<Chunk> retrievedChunks) {
-        record ParentKey(String sourceFile, int parentId) {}
-
         StringBuilder context = new StringBuilder();
-        Set<ParentKey> addedParents = new HashSet<>();
         for (Chunk chunk : retrievedChunks) {
-            if (!StringUtil.isBlank(chunk.parentContent)) {
-                if (addedParents.add(new ParentKey(chunk.sourceFile, chunk.parentId))) {
-                    context.append("[来源: ").append(chunk.sourceFile).append("]\n")
-                            .append(chunk.parentContent).append("\n\n");
-                }
-            } else if (!StringUtil.isBlank(chunk.content)) {
-                context.append("[来源: ").append(chunk.sourceFile).append("]\n")
+            if (!StringUtil.isBlank(chunk.content)) {
+                context.append("[Source: ").append(chunk.sourceFile).append("]\n")
                         .append(chunk.content).append("\n\n");
             }
         }
         if (context.isEmpty()) {
-            return "没有检索到相关的 TangFan DB 文档资料。";
+            return "No relevant TangFan DB documentation was found.";
         }
-        return "[检索到的 TangFan DB 参考资料]\n" + context;
+        return "[Retrieved TangFan DB reference material]\n" + context;
     }
 
     public String rewriteQuery(List<ChatMessage> history, String originalQuery) {
@@ -54,8 +51,9 @@ public class PromptService {
         }
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(SystemMessage.from("""
-                将对话中的最新问题改写为适合文档检索的独立问题。
-                可利用此前对话补全指代信息。只返回改写后的问题，不回答问题。
+                Rewrite the latest question in the conversation as a standalone question
+                suitable for document retrieval. Use the previous conversation to resolve
+                references when helpful. Return only the rewritten question; do not answer it.
                 """));
         messages.addAll(history);
         messages.add(UserMessage.from(REWRITE_PROMPT_TEMPLATE.replace("{originalQuery}", originalQuery)));

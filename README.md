@@ -11,5 +11,5 @@ chroma db config:
    -H "Content-Type: application/json" \
    -d '{
    "conversationId": "conv_test",
-   "rawQuery": "What is the default port of TangFan DB？"
+   "rawQuery": "what about the db eviction policy"
    }'

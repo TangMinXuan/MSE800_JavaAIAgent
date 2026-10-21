@@ -65,7 +65,7 @@ public class IngestionPipeline {
                             .orElseThrow(() -> new IllegalStateException("The document was not loaded"));
                     String sourceFile = state.<String>value(SOURCE_FILE)
                             .orElseThrow(() -> new IllegalStateException("The source file was not retained"));
-                    List<Chunk> chunks = chunkService.split2(documentText, sourceFile);
+                    List<Chunk> chunks = chunkService.split(documentText, sourceFile);
                     return Map.of(CHUNKS, chunks);
                 }))
                 .addNode("store_chunks", AsyncNodeAction.node_async(state -> {
@@ -104,7 +104,7 @@ public class IngestionPipeline {
                 new DocumentLoader(),
                 chunkService,
                 vectorStoreService);
-        File document = new File("src/main/resources/TangFanDB.md");
+        File document = new File("src/main/resources/base.txt");
         int ingestedChunks = ingestionPipeline.ingest(document);
         System.out.println("已处理文档块数: " + ingestedChunks);
     }

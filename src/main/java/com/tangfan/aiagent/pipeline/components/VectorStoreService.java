@@ -12,8 +12,6 @@ import java.util.List;
 public class VectorStoreService {
     private static final String CHUNK_ID = "chunk_id";
     private static final String SOURCE_FILE = "source_file";
-    private static final String PARENT_ID = "parent_id";
-    private static final String PARENT_CONTENT = "parent_content";
 
     private final ChromaDbClient chromaDbClient;
 
@@ -28,8 +26,6 @@ public class VectorStoreService {
                     Metadata metadata = new Metadata();
                     metadata.put(CHUNK_ID, chunk.id);
                     metadata.put(SOURCE_FILE, chunk.sourceFile);
-                    metadata.put(PARENT_ID, chunk.parentId);
-                    metadata.put(PARENT_CONTENT, chunk.parentContent);
                     return TextSegment.from(chunk.content, metadata);
                 })
                 .toList();
@@ -47,9 +43,9 @@ public class VectorStoreService {
                     new Chunk(
                             metadata.getInteger(CHUNK_ID),
                             segment.text(),
-                            metadata.getString(SOURCE_FILE),
-                            metadata.getInteger(PARENT_ID),
-                            metadata.getString(PARENT_CONTENT)));
+                            metadata.getString(SOURCE_FILE)
+                    )
+            );
         }
         return chunks;
     }

@@ -54,6 +54,7 @@ public class RagPipeline {
                 .addNode("rewrite_query", AsyncNodeAction.node_async(state -> {
                     String question = state.<String>value(QUESTION)
                             .orElseThrow(() -> new IllegalStateException("Missing graph state value: " + QUESTION));
+                    System.out.println("RAG: raw question: " + question);
                     List<ChatMessage> history = state.<List<TextHistoryMessage>>value(HISTORY)
                             .orElseGet(List::of)
                             .stream()
@@ -64,11 +65,13 @@ public class RagPipeline {
                 .addNode("retrieve_chunks", AsyncNodeAction.node_async(state -> {
                     String rewrittenQuery = state.<String>value(REWRITTEN_QUERY)
                             .orElseThrow(() -> new IllegalStateException("Missing graph state value: " + REWRITTEN_QUERY));
+                    System.out.println("RAG: rewritten query: " + rewrittenQuery);
                     return Map.of(RETRIEVED_CHUNKS, chunkService.retrieve(rewrittenQuery));
                 }))
                 .addNode("build_context", AsyncNodeAction.node_async(state -> {
                     List<Chunk> chunks = state.<List<Chunk>>value(RETRIEVED_CHUNKS)
                             .orElseThrow(() -> new IllegalStateException("Chunks were not retrieved"));
+                    System.out.println("RAG: building context for retrieved chunks: " + chunks.size());
                     return Map.of(CONTEXT, promptService.buildRetrievedContext(chunks));
                 }))
                 .addEdge(START, "rewrite_query")

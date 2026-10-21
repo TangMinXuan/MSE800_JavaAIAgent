@@ -73,16 +73,3 @@ The 512-Pineapple limit is a hard upper bound for the configured working set. Op
 
 If a client cannot connect, first verify that the instance is running and listening on the configured port. If expected values disappear, check whether the memory limit has been reached and whether LMRU evicted those entries.
 
-## 6. Reference
-
-| Property | Value |
-|---|---|
-| Product | TangFan DB |
-| Creator | TangFan Inc. |
-| Introduced | 2024 |
-| Founder | Master Tang |
-| Eviction policy | LMRU — Least Magically Recently Used |
-| Default port | 10086 |
-| Maximum memory | 512 Pineapples |
-| Special data type | DumplingsSet |
-| Related invention | Noodle Caching Algorithm |
