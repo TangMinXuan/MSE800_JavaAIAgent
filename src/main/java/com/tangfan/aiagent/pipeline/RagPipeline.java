@@ -1,14 +1,6 @@
 package com.tangfan.aiagent.pipeline;
 
-import com.tangfan.aiagent.TangFanAgent;
-import com.tangfan.aiagent.TangFanDbTool;
 import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.service.AiServices;
-import com.tangfan.aiagent.infra.database.ChromaDbClient;
-import com.tangfan.aiagent.infra.llm.ChatService;
 import com.tangfan.aiagent.model.Chunk;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphInput;
@@ -18,10 +10,8 @@ import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.state.AgentState;
 import com.tangfan.aiagent.pipeline.components.ChunkService;
-import com.tangfan.aiagent.pipeline.components.ConversationMemory;
 import com.tangfan.aiagent.pipeline.components.ConversationMemory.TextHistoryMessage;
 import com.tangfan.aiagent.pipeline.components.PromptService;
-import com.tangfan.aiagent.pipeline.components.VectorStoreService;
 
 import java.util.List;
 import java.util.Map;
@@ -59,8 +49,6 @@ public class RagPipeline {
 
     private final CompiledGraph<AgentState> graph;
 
-    public static final String apiKey = System.getenv("API_KEY");
-
     public RagPipeline(ChunkService chunkService, PromptService promptService) throws GraphStateException {
         this.graph = new StateGraph<>(AgentState::new)
                 .addNode("rewrite_query", AsyncNodeAction.node_async(state -> {
@@ -89,7 +77,7 @@ public class RagPipeline {
                 .addEdge("build_context", END)
                 .compile();
     }
-    public String toolCalling(String question, List<TextHistoryMessage> history) {
+    public RAG_Result invoke(String question, List<TextHistoryMessage> history) {
         if (question == null || question.isBlank()) {
             throw new IllegalArgumentException("Question must not be blank");
         }
@@ -98,34 +86,13 @@ public class RagPipeline {
                         GraphInput.args(Map.of(QUESTION, question, HISTORY, conversationHistory)),
                         RunnableConfig.empty())
                 .orElseThrow(() -> new IllegalStateException("RAG graph produced no context"));
-        return result.<String>value(CONTEXT)
-                .orElseThrow(() -> new IllegalStateException("RAG graph produced no context"));
+        return new RAG_Result(
+                result.<String>value(CONTEXT)
+                        .orElseThrow(() -> new IllegalStateException("RAG graph produced no context")),
+                result.<List<Chunk>>value(RETRIEVED_CHUNKS)
+                        .orElseThrow(() -> new IllegalStateException("RAG graph produced no chunks"))
+        );
     }
 
-    public static void main(String[] args) throws GraphStateException {
-        EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
-        ChromaDbClient chromaDbClient = ChromaDbClient.fromEnvironment(embeddingModel);
-        VectorStoreService vectorStoreService = new VectorStoreService(chromaDbClient);
-        ChunkService chunkService = new ChunkService(vectorStoreService);
-
-        ChatService chatService = new ChatService();
-        RagPipeline ragPipeline = new RagPipeline(chunkService, new PromptService(chatService));
-        ConversationMemory conversationMemory = new ConversationMemory();
-        TangFanDbTool tool = new TangFanDbTool(ragPipeline, conversationMemory);
-
-        OpenAiChatModel agentModel = OpenAiChatModel.builder()
-                .baseUrl("https://openrouter.ai/api/v1")
-                .apiKey(apiKey)
-                .modelName("openai/gpt-4o-mini")
-                .build();
-        TangFanAgent agent = AiServices.builder(TangFanAgent.class)
-                .chatModel(agentModel)
-                .chatMemoryProvider(conversationMemory)
-                .tools(tool)
-                .build();
-
-        String conversationId = "local-console";
-        System.out.println(agent.chat(conversationId, "What is the default port of TangFan DB?"));
-        System.out.println(agent.chat(conversationId, "What is its eviction policy?"));
-    }
+    public record RAG_Result(String context, List<Chunk> chunks) {}
 }

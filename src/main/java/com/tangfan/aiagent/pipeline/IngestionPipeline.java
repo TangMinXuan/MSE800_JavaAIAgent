@@ -47,7 +47,6 @@ public class IngestionPipeline {
     private static final String SOURCE_FILE = "sourceFile";
     private static final String CHUNKS = "chunks";
     private static final String INGESTED_COUNT = "ingestedCount";
-
     private final CompiledGraph<AgentState> graph;
 
     public IngestionPipeline(DocumentLoader documentLoader, ChunkService chunkService,
