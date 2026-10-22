@@ -14,6 +14,7 @@ import com.tangfan.aiagent.pipeline.components.ChunkService;
 import com.tangfan.aiagent.pipeline.components.ConversationMemory;
 import com.tangfan.aiagent.pipeline.components.PromptService;
 import com.tangfan.aiagent.pipeline.components.VectorStoreService;
+import com.tangfan.aiagent.util.StringUtil;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
@@ -24,6 +25,7 @@ import org.bsc.langgraph4j.GraphStateException;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.Map;
 
@@ -33,6 +35,8 @@ public class ApiServer {
     public static final String apiKey = System.getenv("API_KEY");
 
     private static TangFanAgent agent;
+    private static ConversationMemory conversationMemory;
+    private static ChatService chatService;
 
     private Javalin app;
 
@@ -46,9 +50,9 @@ public class ApiServer {
         VectorStoreService vectorStoreService = new VectorStoreService(chromaDbClient);
         ChunkService chunkService = new ChunkService(vectorStoreService);
 
-        ChatService chatService = new ChatService();
+        chatService = new ChatService();
         RagPipeline ragPipeline = new RagPipeline(chunkService, new PromptService(chatService));
-        ConversationMemory conversationMemory = new ConversationMemory();
+        conversationMemory = new ConversationMemory();
         TangFanDbTool tool = new TangFanDbTool(ragPipeline, conversationMemory);
 
         OpenAiStreamingChatModel agentModel = OpenAiStreamingChatModel.builder()
@@ -71,7 +75,6 @@ public class ApiServer {
         initializeAgent();
         app = Javalin.create(config -> {
             config.routes.get("/health", this::health);
-            config.routes.post("/api/echo", this::echo);
             config.routes.post("/api/chat", this::chat);
             config.routes.post("/api/chat/stream", this::streamChat);
         }).start(port);
@@ -80,6 +83,12 @@ public class ApiServer {
     private void streamChat(Context ctx) {
         LLM_ChatReq req = ctx.bodyAsClass(LLM_ChatReq.class);
         System.out.println(req);
+
+        boolean newConversation = StringUtil.isBlank(req.conversationId());
+        if (newConversation) {
+            req.setConversationId(UUID.randomUUID().toString());
+        }
+        final String conversationId = req.conversationId();
 
         ctx.status(200)
                 .contentType("text/event-stream")
@@ -91,7 +100,11 @@ public class ApiServer {
             var writer = ctx.res().getWriter();
             CompletableFuture<Void> streamFinished = new CompletableFuture<>();
 
-            agent.chatStream(req.conversationId(), req.rawQuery())
+            if (newConversation) {
+                writeSse(writer, "conversationId", Map.of("conversationId", conversationId));
+            }
+
+            agent.chatStream(conversationId, req.rawQuery())
                     .onPartialResponse(token -> {
                         try {
                             writeSse(writer, "delta", Map.of("content", token));
@@ -100,6 +113,24 @@ public class ApiServer {
                         }
                     })
                     .onCompleteResponse(response -> {
+                        if (newConversation) {
+                            try {
+                                String title = chatService.generateTitle(
+                                        conversationMemory.get(conversationId).messages());
+                                conversationMemory.updateConversationTitle(conversationId, title);
+                                writeSse(writer, "conversationTitle", Map.of(
+                                        "conversationId", conversationId,
+                                        "title", title));
+                            } catch (RuntimeException | IOException exception) {
+                                try {
+                                    writeSse(writer, "error", Map.of("message", "Conversation title generation failed"));
+                                } catch (IOException writeException) {
+                                    exception.addSuppressed(writeException);
+                                }
+                                streamFinished.completeExceptionally(exception);
+                                return;
+                            }
+                        }
                         try {
                             writeSse(writer, "done", Map.of());
                             streamFinished.complete(null);
@@ -122,12 +153,6 @@ public class ApiServer {
         });
     }
 
-    private void writeSse(Writer writer, String event, Object data) throws IOException {
-        writer.write("event: " + event + "\n");
-        writer.write("data: " + gson.toJson(data) + "\n\n");
-        writer.flush();
-    }
-
     private void chat(Context ctx) {
         LLM_ChatReq req = ctx.bodyAsClass(LLM_ChatReq.class);
         System.out.println(req);
@@ -142,38 +167,33 @@ public class ApiServer {
         json(ctx, 200, Map.of("status", "ok"));
     }
 
-    private void echo(Context ctx) {
-        final JsonElement body;
-        try {
-            body = JsonParser.parseString(ctx.body());
-        } catch (JsonParseException exception) {
-            json(ctx, 400, Map.of("error", "Request body must be valid JSON"));
-            return;
-        }
-
-        if (!body.isJsonObject()) {
-            json(ctx, 400, Map.of("error", "Request body must be a JSON object"));
-            return;
-        }
-
-        JsonObject request = body.getAsJsonObject();
-        JsonElement message = request.get("message");
-        if (message == null || !message.isJsonPrimitive() || !message.getAsJsonPrimitive().isString()
-                || message.getAsString().isBlank()) {
-            json(ctx, 400, Map.of("error", "'message' must be a non-blank string"));
-            return;
-        }
-
-        json(ctx, 200, Map.of("message", message.getAsString()));
-    }
-
     private void json(Context ctx, int status, Object body) {
         ctx.status(status)
                 .contentType("application/json")
                 .result(gson.toJson(body));
     }
 
-    private record LLM_ChatResp(int code, String msg, String conversationId, String conversationTitle, String llmResp) {
+    private void writeSse(Writer writer, String event, Object data) throws IOException {
+        writer.write("event: " + event + "\n");
+        writer.write("data: " + gson.toJson(data) + "\n\n");
+        writer.flush();
+    }
+
+    private static class LLM_ChatResp {
+        private int code;
+        private String msg;
+        private String conversationId;
+        private String conversationTitle;
+        private String llmResp;
+
+        private LLM_ChatResp(int code, String msg, String conversationId, String conversationTitle, String llmResp) {
+            this.code = code;
+            this.msg = msg;
+            this.conversationId = conversationId;
+            this.conversationTitle = conversationTitle;
+            this.llmResp = llmResp;
+        }
+
         @Override
         public String toString() {
             return "LLM_ChatResp{" +
@@ -186,7 +206,26 @@ public class ApiServer {
         }
     }
 
-    private record LLM_ChatReq(String conversationId, String rawQuery) {
+    private static class LLM_ChatReq {
+        private String conversationId;
+        private String rawQuery;
+
+        public void setConversationId(String conversationId) {
+            this.conversationId = conversationId;
+        }
+
+        public void setRawQuery(String rawQuery) {
+            this.rawQuery = rawQuery;
+        }
+
+        public String conversationId() {
+            return conversationId;
+        }
+
+        public String rawQuery() {
+            return rawQuery;
+        }
+
         @Override
         public String toString() {
             return "LLM_ChatReq{" +

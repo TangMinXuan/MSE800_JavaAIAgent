@@ -24,5 +24,5 @@ public interface TangFanAgent {
         If the tool finds no relevant documentation, do not invent an answer.
         For general questions, answer directly.
         """)
-    TokenStream chatStream(@MemoryId String conversationId, @UserMessage String userMessage);
+    TokenStream chatStream(@MemoryId Object conversationId, @UserMessage String userMessage);
 }

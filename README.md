@@ -10,6 +10,12 @@ chroma db config:
 5. curl -N -X POST http://localhost:7070/api/chat/stream \
    -H "Content-Type: application/json" \
    -d '{
-   "conversationId": "conv_test",
-   "rawQuery": "what about the db eviction policy"
+   "conversationId": "",
+   "rawQuery": "what about the eviction policy of db"
+   }'
+6. curl -N -X POST http://localhost:7070/api/chat/stream \
+   -H "Content-Type: application/json" \
+   -d '{
+   "conversationId": "a983147f-6144-49e2-b4e2-eaea689e858f",
+   "rawQuery": "what about its default port"         
    }'

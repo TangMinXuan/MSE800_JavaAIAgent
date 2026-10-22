@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: Java AI Agent API
+  version: 1.0.0
+  description: |
+    API for checking service health and streaming chat responses.
+servers:
+  - url: http://localhost:7070
+    description: Local development server
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check service health
+      responses:
+        "200":
+          description: The service is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              example:
+                status: ok
+
+  /api/chat/stream:
+    post:
+      operationId: streamChat
+      summary: Stream a chat response
+      description: |
+        Returns the Server-Sent Events (SSE) stream shown in the response
+        example for the request shown below.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rawQuery
+              properties:
+                conversationId:
+                  type:
+                    - string
+                    - "null"
+                  description: |
+                    Existing conversation ID. Omit, set to null, or use an
+                    empty string to start a new conversation.
+                rawQuery:
+                  type: string
+                  description: The user's message.
+            example:
+              conversationId: ""
+              rawQuery: what about the eviction policy of db
+      responses:
+        "200":
+          description: SSE response stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                completeNewConversation:
+                  summary: Observed response for the example request
+                  value: |-
+                    event: conversationId
+                    data: {"conversationId":"a983147f-6144-49e2-b4e2-eaea689e858f"}
+
+                    event: delta
+                    data: {"content":"Tang"}
+
+                    event: delta
+                    data: {"content":"Fan"}
+
+                    event: delta
+                    data: {"content":" DB"}
+
+                    event: delta
+                    data: {"content":" uses"}
+
+                    event: delta
+                    data: {"content":" a"}
+
+                    event: delta
+                    data: {"content":" unique"}
+
+                    event: delta
+                    data: {"content":" eviction"}
+
+                    event: delta
+                    data: {"content":" policy"}
+
+                    event: delta
+                    data: {"content":" known"}
+
+                    event: delta
+                    data: {"content":" as"}
+
+                    event: delta
+                    data: {"content":" \""}
+
+                    event: delta
+                    data: {"content":"LM"}
+
+                    event: delta
+                    data: {"content":"RU"}
+
+                    event: delta
+                    data: {"content":"\""}
+
+                    event: delta
+                    data: {"content":" ("}
+
+                    event: delta
+                    data: {"content":"Least"}
+
+                    event: delta
+                    data: {"content":" Mag"}
+
+                    event: delta
+                    data: {"content":"ically"}
+
+                    event: delta
+                    data: {"content":" Recently"}
+
+                    event: delta
+                    data: {"content":" Used"}
+
+                    event: delta
+                    data: {"content":")."}
+
+                    event: delta
+                    data: {"content":" This"}
+
+                    event: delta
+                    data: {"content":" policy"}
+
+                    event: delta
+                    data: {"content":" determines"}
+
+                    event: delta
+                    data: {"content":" how"}
+
+                    event: delta
+                    data: {"content":" data"}
+
+                    event: delta
+                    data: {"content":" is"}
+
+                    event: delta
+                    data: {"content":" managed"}
+
+                    event: delta
+                    data: {"content":" in"}
+
+                    event: delta
+                    data: {"content":" memory"}
+
+                    event: delta
+                    data: {"content":","}
+
+                    event: delta
+                    data: {"content":" particularly"}
+
+                    event: delta
+                    data: {"content":" when"}
+
+                    event: delta
+                    data: {"content":" the"}
+
+                    event: delta
+                    data: {"content":" database"}
+
+                    event: delta
+                    data: {"content":" reaches"}
+
+                    event: delta
+                    data: {"content":" its"}
+
+                    event: delta
+                    data: {"content":" memory"}
+
+                    event: delta
+                    data: {"content":" limits"}
+
+                    event: delta
+                    data: {"content":"."}
+
+                    event: conversationTitle
+                    data: {"conversationId":"a983147f-6144-49e2-b4e2-eaea689e858f","title":"Eviction Policy of TangFan DB"}
+
+                    event: done
+                    data: {}
